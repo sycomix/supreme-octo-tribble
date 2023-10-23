@@ -52,8 +52,8 @@ def check_is_number(value):
 
 def get_inbetweens(key_frames, max_frames, integer=False, interp_method='Linear'):
     import numexpr
-    key_frame_series = pd.Series([np.nan for a in range(max_frames)])
-    
+    key_frame_series = pd.Series([np.nan for _ in range(max_frames)])
+
     for i in range(0, max_frames):
         if i in key_frames:
             value = key_frames[i]
@@ -66,18 +66,16 @@ def get_inbetweens(key_frames, max_frames, integer=False, interp_method='Linear'
             t = i
             key_frame_series[i] = numexpr.evaluate(value)
     key_frame_series = key_frame_series.astype(float)
-    
+
     if interp_method == 'Cubic' and len(key_frames.items()) <= 3:
-      interp_method = 'Quadratic'    
+      interp_method = 'Quadratic'
     if interp_method == 'Quadratic' and len(key_frames.items()) <= 2:
       interp_method = 'Linear'
-          
+
     key_frame_series[0] = key_frame_series[key_frame_series.first_valid_index()]
     key_frame_series[max_frames-1] = key_frame_series[key_frame_series.last_valid_index()]
     key_frame_series = key_frame_series.interpolate(method=interp_method.lower(), limit_direction='both')
-    if integer:
-        return key_frame_series.astype(int)
-    return key_frame_series
+    return key_frame_series.astype(int) if integer else key_frame_series
 
 def parse_key_frames(string, prompt_parser=None):
     # because math functions (i.e. sin(t)) can utilize brackets 
@@ -89,13 +87,11 @@ def parse_key_frames(string, prompt_parser=None):
     for match_object in re.finditer(pattern, string):
         frame = int(match_object.groupdict()['frame'])
         param = match_object.groupdict()['param']
-        if prompt_parser:
-            frames[frame] = prompt_parser(param)
-        else:
-            frames[frame] = param
-    if frames == {} and len(string) != 0:
+        frames[frame] = prompt_parser(param) if prompt_parser else param
+    if frames or len(string) == 0:
+        return frames
+    else:
         raise RuntimeError('Key Frame string not correctly formatted')
-    return frames
 
 
 
@@ -135,9 +131,7 @@ def getRotationMatrixManual(rotation_angles):
     Rtheta[0, 1] = -st
     Rtheta[1, 0] = st
 
-    R = reduce(lambda x, y: np.matmul(x, y), [Rphi, Rgamma, Rtheta])
-
-    return R
+    return reduce(lambda x, y: np.matmul(x, y), [Rphi, Rgamma, Rtheta])
 
 def getPoints_for_PerspectiveTranformEstimation(ptsIn, ptsOut, W, H, sidelength):
     ptsIn2D = ptsIn[0, :]
@@ -257,9 +251,7 @@ def add_noise(sample: torch.Tensor, noise_amt: float) -> torch.Tensor:
 def next_seed(args):
     if args.seed_behavior == 'iter':
         args.seed += 1
-    elif args.seed_behavior == 'fixed':
-        pass # always keep seed the same
-    else:
+    elif args.seed_behavior != 'fixed':
         args.seed = random.randint(0, 2**32 - 1)
     return args.seed
 
